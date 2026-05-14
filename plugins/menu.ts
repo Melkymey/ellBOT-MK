@@ -2,74 +2,84 @@ export default async function ({ cmd, prefix, pushname, botSettings, reply, sock
     if (cmd !== "menu" && cmd !== "help") return false;
 
     const menu = `
-╭━━━━━━━━━━━━━━━━━━━━╮
-┃     🔰 *ellbot_MK* 🔰
-╰━━━━━━━━━━━━━━━━━━━━╯
+╭━━〔 ✦ *ellBot-MK INDO* ✦ 〕━━╮
+┃ 👤 *User:* ${pushname}
+┃ ⚡ *Prefix:* "${prefix}"
+┃ 🤖 *Status:* Online & Stable
+╰━━━━━━━━━━━━━━━━━━━╯
 
-👤 *User:* ${pushname}
-📡 *Status:* Online
-⚡ *Prefix:* ${prefix}
+*Pilih kategori menu di bawah:*
 
-╭─── *SETTINGS* ───
-│ ⚙️ *${prefix}setai* <on/off> [${botSettings.aiEnabled ? '✅' : '❌'}]
-│ ⚙️ *${prefix}setsticker* <on/off> [${botSettings.stickerEnabled ? '✅' : '❌'}]
-│ ⚙️ *${prefix}setautosticker* <on/off> [${botSettings.autoSticker ? '✅' : '❌'}]
-│ ⚙️ *${prefix}setautoread* <on/off> [${botSettings.autoRead ? '✅' : '❌'}]
-│ ⚙️ *${prefix}setautoreact* <on/off> [${botSettings.autoReaction ? '✅' : '❌'}]
-│ ⚙️ *${prefix}setemoji* <emoji> [${botSettings.reactionEmoji}]
-╰────────────────
+┌──〔 🤖 *AI & SEARCH* 〕
+│ ✎ ${prefix}ai <tanya>
+│ ✎ ${prefix}aiimg <prompt>
+│ ✎ ${prefix}google <search>
+│ ✎ ${prefix}wiki <query>
+│ ✎ ${prefix}pinterest <query>
+└───────────────
 
-╭─── *CORE AI* ───
-│ 🤖 *${prefix}ai* <tanya>
-│ 🎨 *${prefix}aiimg* <prompt>
-│ 🎨 *${prefix}sticker* (reply media)
-│ 👤 *${prefix}owner* (kontak owner)
-╰────────────────
+┌──〔 📥 *DOWNLOADER* 〕
+│ ✎ ${prefix}play <judul lagu>
+│ ✎ ${prefix}ytmp3 <url youtube>
+│ ✎ ${prefix}ytmp4 <url youtube>
+│ ✎ ${prefix}tiktok <url tiktok>
+│ ✎ ${prefix}ig <url instagram>
+│ ✎ ${prefix}fb <url facebook>
+└───────────────
 
-╭─── *DOWNLOADER* ───
-│ 🎵 *${prefix}tiktok* <url>
-│ 📺 *${prefix}ytmp3* <url>
-│ 🎥 *${prefix}ytmp4* <url>
-╰────────────────
+┌──〔 🎨 *CONVERTER* 〕
+│ ✎ ${prefix}sticker (balas media)
+│ ✎ ${prefix}ttp <teks>
+│ ✎ ${prefix}toimg (balas stiker)
+│ ✎ ${prefix}toqr <link/teks>
+│ ✎ ${prefix}tourl (balas foto)
+└───────────────
 
-╭─── *TOOLS* ───
-│ 📈 *${prefix}profile* (cek level)
-│ 🏆 *${prefix}leaderboard* (top level)
-│ 📝 *${prefix}nulis* <teks>
-│ 🎨 *${prefix}ttp* <teks>
-│ 🔗 *${prefix}tourl* <balas foto>
-│ 📱 *${prefix}toqr* <teks/link>
-│ 📖 *${prefix}wiki* <query>
-│ 📝 *${prefix}tr* <lang> <teks>
-│ 📄 *${prefix}buatcv* <data>
-╰────────────────
+┌──〔 👥 *GROUP MENU* 〕
+│ ✎ ${prefix}hidetag <pesan>
+│ ✎ ${prefix}kick @user
+│ ✎ ${prefix}add 62xxx
+│ ✎ ${prefix}group <open/close>
+│ ✎ ${prefix}demote/promote @user
+└───────────────
 
-╭─── *GROUP* ───
-│ 👥 *${prefix}hidetag* <pesan>
-│ 🚪 *${prefix}kick* @user
-│ ➕ *${prefix}add* 62xxx
-╰────────────────
+┌──〔 ⚙️ *SETTINGS* 〕
+│ ✎ ${prefix}setai <on/off>
+│ ✎ ${prefix}setsticker <on/off>
+│ ✎ ${prefix}setautoread <on/off>
+│ ✎ ${prefix}setautoreact <on/off>
+│ ✎ ${prefix}setemoji <emoji>
+└───────────────
 
-_Bot Status: Stable v2.0_
+┌──〔 🏆 *LEVELING* 〕
+│ ✎ ${prefix}profile
+│ ✎ ${prefix}leaderboard
+└───────────────
+
+┌──〔 🎮 *GAMES* 〕
+│ ✎ ${prefix}tebakgambar
+└───────────────
+
+┌──〔 🛠 *TOOLS* 〕
+│ ✎ ${prefix}nulis <teks>
+│ ✎ ${prefix}tr <lang> <teks>
+│ ✎ ${prefix}buatcv <nama|data...>
+└───────────────
+
+_Bot ini berbasis ellBot-MK dengan fitur terlengkap._
 `.trim();
     
-    const menuImagePath = "./media/menu.jpg";
-    const fs = await import("fs");
+    const fallbackImage = "https://w0.peakpx.com/wallpaper/582/283/HD-wallpaper-whatsapp-aesthetic-green-whatsapp-logo.jpg";
     
-    if (fs.existsSync(menuImagePath)) {
-        await sock.sendMessage(jid, { 
-            image: { url: menuImagePath }, 
-            caption: menu 
-        }, { quoted: msg });
-    } else {
-        // Fallback to text with a placeholder image link if you want, 
-        // or just send the menu text. Let's use a nice remote placeholder for now.
-        const fallbackImage = "https://w0.peakpx.com/wallpaper/582/283/HD-wallpaper-whatsapp-aesthetic-green-whatsapp-logo.jpg";
-        await sock.sendMessage(jid, { 
-            image: { url: fallbackImage }, 
-            caption: menu 
-        }, { quoted: msg });
-    }
+    await sock.sendMessage(jid, { 
+        image: { url: fallbackImage }, 
+        caption: menu,
+        footer: "© 2024 ellBot-MK v3.0",
+        buttons: [
+            { buttonId: `${prefix}owner`, buttonText: { displayText: 'Owner 👤' }, type: 1 }
+        ],
+        headerType: 4
+    }, { quoted: msg });
     
     return true;
 }

@@ -80,5 +80,27 @@ export default async function ({ cmd, q, reply, sock, jid, msg, downloadMediaMes
         return true;
     }
 
+    if (cmd === "toimg" || cmd === "toimage") {
+        let targetMsg = msg;
+        const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+        if (quoted) {
+            targetMsg = { message: quoted };
+        }
+
+        const isSticker = targetMsg.message?.stickerMessage;
+        if (!isSticker) return reply("Balas stiker untuk dijadikan gambar.");
+
+        try {
+            await reply("Sedang mengkonversi stiker... ⏳");
+            const media = await downloadMediaMessage(targetMsg, 'buffer', {});
+            // Send as image directly, most clients convert on the fly or display webp image
+            await sock.sendMessage(jid, { image: media, caption: "Ini hasilnya kak!" }, { quoted: msg });
+        } catch (e: any) {
+            console.error("ToImg Error:", e.message);
+            reply("Gagal mengkonversi stiker menjadi gambar.");
+        }
+        return true;
+    }
+
     return false;
 }

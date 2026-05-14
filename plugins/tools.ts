@@ -4,9 +4,19 @@ export default async function ({ cmd, q, reply, sock, jid, msg, prefix }: any) {
     if (cmd === "nulis") {
         if (!q) return reply(`Gunakan ${prefix}nulis <teks kamu>`);
         try {
-            const nulisUrl = `https://api.lolhuman.xyz/api/nulis?apikey=8504f6a115386084a7d41464&text=${encodeURIComponent(q)}`;
-            await sock.sendMessage(jid, { image: { url: nulisUrl }, caption: "Ini hasilnya kak!" }, { quoted: msg });
-        } catch (e) {
+            reply("Sedang menulis, mohon tunggu...");
+            // API 1: Siputzx
+            try {
+                const nulisUrl = `https://api.siputzx.my.id/api/utils/nulis?text=${encodeURIComponent(q)}`;
+                await sock.sendMessage(jid, { image: { url: nulisUrl }, caption: "Ini hasilnya kak! (API 1)" }, { quoted: msg });
+                return true;
+            } catch (e) {}
+
+            // API 2: Lolhuman (Fallback)
+            const nulisUrl2 = `https://api.lolhuman.xyz/api/nulis?apikey=8504f6a115386084a7d41464&text=${encodeURIComponent(q)}`;
+            await sock.sendMessage(jid, { image: { url: nulisUrl2 }, caption: "Ini hasilnya kak! (API 2)" }, { quoted: msg });
+        } catch (e: any) {
+            console.error("Nulis Plugin Error:", e.message);
             reply("Gagal memproses fitur nulis. Coba lagi nanti.");
         }
         return true;
@@ -37,6 +47,20 @@ export default async function ({ cmd, q, reply, sock, jid, msg, prefix }: any) {
             }
         } catch (e) {
             reply("Gagal mencari di Wikipedia.");
+        }
+        return true;
+    }
+
+    if (cmd === "ttp") {
+        if (!q) return reply(`Gunakan ${prefix}ttp <teks>`);
+        try {
+            reply("Memproses TTP...");
+            const ttpUrl = `https://api.siputzx.my.id/api/canvas/ttp?text=${encodeURIComponent(q)}`;
+            // Many APIs return a sticker compatible image
+            await sock.sendMessage(jid, { sticker: { url: ttpUrl } }, { quoted: msg });
+        } catch (e: any) {
+            console.error("TTP Error:", e.message);
+            reply("Error saat membuat TTP.");
         }
         return true;
     }

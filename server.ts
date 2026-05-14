@@ -3,7 +3,27 @@ import path from "path";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import { createServer as createViteServer } from "vite";
-import makeWASocket, { 
+import * as BaileysNamespace from "@whiskeysockets/baileys";
+
+// Robust detection of makeWASocket function
+const getMakeWASocket = () => {
+    const b = BaileysNamespace as any;
+    // Try named export first
+    if (typeof b.makeWASocket === 'function') return b.makeWASocket;
+    // Try default export as function
+    if (typeof b.default === 'function') return b.default;
+    // Try nested default (ESM/CJS interop)
+    if (b.default && typeof b.default.makeWASocket === 'function') return b.default.makeWASocket;
+    if (b.default && typeof b.default.default === 'function') return b.default.default;
+    // Extreme fallback
+    return b.default || b;
+};
+
+const makeWASocket = getMakeWASocket();
+
+// Extract other utilities safely
+const BaileysUtils = (BaileysNamespace as any).default || BaileysNamespace;
+const { 
     DisconnectReason, 
     useMultiFileAuthState, 
     fetchLatestBaileysVersion,
@@ -11,15 +31,16 @@ import makeWASocket, {
     Browsers,
     downloadMediaMessage,
     proto
-} from "@whiskeysockets/baileys";
+} = BaileysNamespace as any; // Usually these are named exports or on the main object
 import { Boom } from "@hapi/boom";
 import pino from "pino";
 import QRCode from "qrcode";
-import { GoogleGenAI } from "@google/genai";
 import fs from "fs";
 import axios from "axios";
 import { Sticker, createSticker, StickerTypes } from "wa-sticker-formatter";
 import mongoose from "mongoose";
+
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // Initialize Gemini
 const apiKey = process.env.GEMINI_API_KEY || "";
@@ -27,8 +48,8 @@ let model: any = null;
 
 if (apiKey) {
     try {
-        const genAI = new (GoogleGenAI as any)(apiKey);
-        model = (genAI as any).getGenerativeModel({ model: "gemini-1.5-flash" });
+        const genAI = new GoogleGenerativeAI(apiKey);
+        model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
         console.log("Gemini AI initialized.");
     } catch (e) {
         console.error("Gemini Init Error:", e);
@@ -42,11 +63,10 @@ const SETTINGS_FILE = "./bot_settings.json";
 const CV_STORAGE_FILE = "./cv_storage.json";
 
 // MongoDB Connection
-const mongoURI = process.env.MONGODB_URI;
-if (mongoURI) {
-    mongoose.connect(mongoURI)
-        .then(() => console.log("Connected to MongoDB established."))
-        .catch(err => console.error("MongoDB Connection Error:", err));
+const mongoURI = process.env.MONGODB_URI || "mongodb+srv://Bebas:tiktok13@cluster0.jmthq2c.mongodb.net/?appName=Cluster0";
+
+if (!process.env.MONGODB_URI) {
+    console.warn("MONGODB_URI env var is missing, using fallback URI provided by user.");
 }
 
 // MongoDB Schemas
@@ -95,21 +115,25 @@ let cvStorage: Record<string, any> = {};
 
 // Load Initial Settings
 const loadSettings = async () => {
-    if (mongoURI) {
-        const settings = await SettingModel.findOne({ id: 'bot_settings' });
-        if (settings) {
-            botSettings = {
-                aiEnabled: settings.aiEnabled,
-                stickerEnabled: settings.stickerEnabled,
-                autoSticker: settings.autoSticker,
-                nulisEnabled: settings.nulisEnabled,
-                downloaderEnabled: settings.downloaderEnabled,
-                autoRead: settings.autoRead || false,
-                autoReaction: settings.autoReaction || false,
-                reactionEmoji: settings.reactionEmoji || 'random'
-            };
-        } else {
-            await new SettingModel(botSettings).save();
+    if (mongoURI && mongoose.connection.readyState === 1) {
+        try {
+            const settings = await SettingModel.findOne({ id: 'bot_settings' });
+            if (settings) {
+                botSettings = {
+                    aiEnabled: settings.aiEnabled,
+                    stickerEnabled: settings.stickerEnabled,
+                    autoSticker: settings.autoSticker,
+                    nulisEnabled: settings.nulisEnabled,
+                    downloaderEnabled: settings.downloaderEnabled,
+                    autoRead: settings.autoRead || false,
+                    autoReaction: settings.autoReaction || false,
+                    reactionEmoji: settings.reactionEmoji || 'random'
+                };
+            } else {
+                await new SettingModel(botSettings).save();
+            }
+        } catch (e) {
+            console.error("Error loading settings from MongoDB:", e);
         }
     } else if (fs.existsSync(SETTINGS_FILE)) {
         try {
@@ -121,11 +145,15 @@ const loadSettings = async () => {
 };
 
 const loadCVs = async () => {
-    if (mongoURI) {
-        const cvs = await CVModel.find({});
-        cvs.forEach(cv => {
-            if (cv.cvId) cvStorage[cv.cvId] = cv.data;
-        });
+    if (mongoURI && mongoose.connection.readyState === 1) {
+        try {
+            const cvs = await CVModel.find({});
+            cvs.forEach(cv => {
+                if (cv.cvId) cvStorage[cv.cvId] = cv.data;
+            });
+        } catch (e) {
+            console.error("Error loading CVs from MongoDB:", e);
+        }
     } else if (fs.existsSync(CV_STORAGE_FILE)) {
         try {
             cvStorage = JSON.parse(fs.readFileSync(CV_STORAGE_FILE, "utf-8"));
@@ -135,12 +163,17 @@ const loadCVs = async () => {
     }
 };
 
-loadSettings();
-loadCVs();
+// Removed redundant global load calls
+// loadSettings();
+// loadCVs();
 
 const saveSettings = async () => {
-    if (mongoURI) {
-        await SettingModel.findOneAndUpdate({ id: 'bot_settings' }, botSettings, { upsert: true });
+    if (mongoURI && mongoose.connection.readyState === 1) {
+        try {
+            await SettingModel.findOneAndUpdate({ id: 'bot_settings' }, botSettings, { upsert: true });
+        } catch (e) {
+            console.error("Error saving settings to MongoDB:", e);
+        }
     } else {
         fs.writeFileSync(SETTINGS_FILE, JSON.stringify(botSettings, null, 2));
     }
@@ -148,14 +181,38 @@ const saveSettings = async () => {
 
 const saveCV = async (id: string, data: any) => {
     cvStorage[id] = data;
-    if (mongoURI) {
-        await CVModel.findOneAndUpdate({ cvId: id }, { data }, { upsert: true });
+    if (mongoURI && mongoose.connection.readyState === 1) {
+        try {
+            await CVModel.findOneAndUpdate({ cvId: id }, { data }, { upsert: true });
+        } catch (e) {
+            console.error("Error saving CV to MongoDB:", e);
+        }
     } else {
         fs.writeFileSync(CV_STORAGE_FILE, JSON.stringify(cvStorage, null, 2));
     }
 };
 
 async function startServer() {
+    if (mongoURI) {
+        try {
+            const maskedURI = mongoURI.replace(/:([^@]+)@/, ":****@");
+            console.log("Attempting to connect to MongoDB with URI:", maskedURI);
+            await mongoose.connect(mongoURI, {
+                serverSelectionTimeoutMS: 5000,
+            });
+            console.log("Connected to MongoDB.");
+        } catch (err: any) {
+            console.error("Initial MongoDB Connection Error:", err.message);
+            if (err.message.includes("bad auth")) {
+                console.error(">>> ERROR: PASSWORD MONGODB SALAH! <<<");
+                console.error("Cek kembali apakah password 'Bebas123' sudah benar di MongoDB Atlas.");
+            } else if (err.message.includes("timeout")) {
+                console.error(">>> ERROR: TIMEOUT KONEKSI MONGODB! <<<");
+                console.error("Biasanya ini karena IP Railway belum di-whitelist di MongoDB Atlas.");
+            }
+        }
+    }
+    
     await loadSettings();
     await loadCVs();
     const app = express();
@@ -284,7 +341,7 @@ async function startServer() {
                 console.log(`[MSG] from ${pushname} (${jid}): ${text}`);
 
                 // Leveling Logic
-                if (mongoURI) {
+                if (mongoURI && mongoose.connection.readyState === 1) {
                     try {
                         let userData = await UserModel.findOne({ jid: sender });
                         if (!userData) {
@@ -319,11 +376,11 @@ async function startServer() {
 
                 // 👑 OWNER COMMAND (Auto Share Contact)
                 if (text.toLowerCase() === (usedPrefix || "!") + "owner" || text.toLowerCase() === "owner") {
-                    const ownerNumber = "6281245695410";
+                    const ownerNumber = "6281245695410"; 
                     const vcard = 'BEGIN:VCARD\n'
                         + 'VERSION:3.0\n' 
-                        + 'FN:Official Owner\n' 
-                        + 'ORG:ellbot_MK;\n'
+                        + 'FN:Official Owner (ellBot-MK)\n' 
+                        + 'ORG:ellBot-MK;\n'
                         + `TEL;type=CELL;type=VOICE;waid=${ownerNumber}:+${ownerNumber}\n` 
                         + 'END:VCARD';
                     
@@ -395,7 +452,7 @@ async function startServer() {
                         console.log(`[AUTO-REPLY] to ${jid} (isGroup: ${isGroup})`);
                         
                         // Send Greeting Text
-                        await reply(`Halo kak *${pushname}*! 👋\n\nSaya adalah *ellbot_MK*, asisten WhatsApp AI Anda. Ketik *${prefixHelp}menu* untuk melihat daftar fitur yang tersedia.\n\nContoh: *${prefixHelp}ai Apa itu AI?*`);
+                        await reply(`Halo kak *${pushname}*! 👋\n\nSaya adalah *ellBot-MK*, asisten WhatsApp AI Anda. Ketik *${prefixHelp}menu* untuk melihat daftar fitur yang tersedia.\n\nContoh: *${prefixHelp}ai Apa itu AI?*`);
 
                         if (fs.existsSync(targetVn)) {
                             await sock.sendMessage(jid, { 
